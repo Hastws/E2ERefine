@@ -33,3 +33,21 @@ output = attn_weights @ V
 # print(output)
 # print(output.shape)
 
+def get_position_encoding(n_position, d_hidden):
+    # 生成一个列向量，但是扩展了维度，使其可以被广播
+    position_encoding = torch.arange(n_position, dtype=torch.float32).unsqueeze(1)
+    print(position_encoding)
+    # 换底公式得到的次公式 torch.log 只能传 tensor 作为参数 得到一个行向量
+    # 先算 2i 序列，然后用这个序列来乘以定值即可。
+    div_term = torch.exp(torch.arange(0,d_hidden,2).float() * (-torch.log(torch.tensor(10000.0)) / d_hidden))
+    print(div_term)
+    pe = torch.zeros(n_position, d_hidden).float()
+    print(pe)
+    # 然后基于广播的机制，将 position_encoding 中的 squeeze 1 给广播填充，变成 position 乘以 hidden 的一半
+    # 然后交替使用 sin cos 填充得到结果
+    pe[:, 0::2] = torch.sin(position_encoding * div_term)
+    pe[:, 1::2] = torch.cos(position_encoding * div_term)
+    print(pe)
+    return pe
+
+get_position_encoding(3,6)
