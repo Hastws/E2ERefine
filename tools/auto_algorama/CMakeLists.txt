@@ -26,7 +26,7 @@ set(IMGUI_SOURCES
 include_directories(./include)
 
 add_executable(${PROJECT_NAME}
-        main.cpp
+        auto_algorama.cpp
         src/windows/main_window.cpp
         ${IMGUI_SOURCES})
 
