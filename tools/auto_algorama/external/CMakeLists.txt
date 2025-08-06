@@ -12,3 +12,5 @@ include_directories(
         ${IMGUI_DIR}
         ${IMGUI_DIR}/backends
 )
+
+include_directories(external/FADBAD++)
