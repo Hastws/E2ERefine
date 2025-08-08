@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ENV_NAME=llmws
+ENV_NAME=E2ERefine
 PYVER=3.10
 
 # 1) 创建并激活 conda 环境
