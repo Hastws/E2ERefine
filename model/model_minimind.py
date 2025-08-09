@@ -8,70 +8,7 @@ from transformers import PreTrainedModel, GenerationMixin, PretrainedConfig
 from transformers.modeling_outputs import CausalLMOutputWithPast
 from model.model_config import MiniMindConfig
 from model.rmsnorm import RMSNorm
-
-
-# class RMSNorm(torch.nn.Module):
-#     def __init__(self, dim: int, eps: float = 1e-5):
-#         super().__init__()
-#         self.eps = eps
-#         self.weight = nn.Parameter(torch.ones(dim))
-#
-#     def _norm(self, x):
-#         return x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps)
-#
-#     def forward(self, x):
-#         return (self.weight * self._norm(x.float())).type_as(x)
-
-def precompute_freqs_cis(dim: int, end: int = 32 * 1024, theta: float = 1e6):
-    # 1) 取偶数维度索引：0, 2, 4, ...（长度约为 dim//2）
-    idx = torch.arange(0, dim, 2, dtype=torch.float32)  # (dim//2,)
-
-    # 2) 指数 = idx / dim
-    power = idx / float(dim)  # (dim//2,)
-
-    # 3) 计算每个通道对的“反频率” 1 / theta^(idx/dim)
-    inv_freq = 1.0 / (theta ** power)  # (dim//2,)
-
-    # 4) 序列位置 t = [0, 1, ..., end-1]
-    t = torch.arange(end, dtype=inv_freq.dtype, device=inv_freq.device)  # (end,)
-
-    # 5) 扩展成外积：freqs[m, k] = t[m] * inv_freq[k]
-    t_col = t.unsqueeze(1)  # (end, 1)
-    inv_row = inv_freq.unsqueeze(0)  # (1, dim//2)
-    freqs = t_col * inv_row  # (end, dim//2)
-
-    # 6) 计算 cos 和 sin
-    freqs_cos_half = torch.cos(freqs)  # (end, dim//2)
-    freqs_sin_half = torch.sin(freqs)  # (end, dim//2)
-
-    # 7) 把每个“偶/奇”维使用同一频率：沿最后一维重复两次
-    freqs_cos = torch.repeat_interleave(freqs_cos_half, 2, dim=-1)  # (end, ~dim)
-    freqs_sin = torch.repeat_interleave(freqs_sin_half, 2, dim=-1)  # (end, ~dim)
-
-    # 8) 保险：如果 dim 是奇数（一般不会），裁到 dim
-    freqs_cos = freqs_cos[:, :dim]
-    freqs_sin = freqs_sin[:, :dim]
-
-    return freqs_cos, freqs_sin
-
-
-# def precompute_freqs_cis(dim: int, end: int = int(32 * 1024), theta: float = 1e6):
-#     freqs = 1.0 / (theta ** (torch.arange(0, dim, 2)[: (dim // 2)].float() / dim))
-#     t = torch.arange(end, device=freqs.device)
-#     freqs = torch.outer(t, freqs).float()
-#     freqs_cos = torch.cat([torch.cos(freqs), torch.cos(freqs)], dim=-1)
-#     freqs_sin = torch.cat([torch.sin(freqs), torch.sin(freqs)], dim=-1)
-#     return freqs_cos, freqs_sin
-
-
-def apply_rotary_pos_emb(q, k, cos, sin, position_ids=None, unsqueeze_dim=1):
-    def rotate_half(x):
-        return torch.cat((-x[..., x.shape[-1] // 2:], x[..., : x.shape[-1] // 2]), dim=-1)
-
-    q_embed = (q * cos.unsqueeze(unsqueeze_dim)) + (rotate_half(q) * sin.unsqueeze(unsqueeze_dim))
-    k_embed = (k * cos.unsqueeze(unsqueeze_dim)) + (rotate_half(k) * sin.unsqueeze(unsqueeze_dim))
-    return q_embed, k_embed
-
+from model.rotary_pos_emb import precompute_freqs_cis, apply_rotary_pos_emb
 
 def repeat_kv(x: torch.Tensor, n_rep: int) -> torch.Tensor:
     """torch.repeat_interleave(x, dim=2, repeats=n_rep)"""
