@@ -10,17 +10,6 @@ from model.model_config import MiniMindConfig
 from model.rmsnorm import RMSNorm
 from model.rotary_pos_emb import precompute_freqs_cis, apply_rotary_pos_emb
 
-def repeat_kv(x: torch.Tensor, n_rep: int) -> torch.Tensor:
-    """torch.repeat_interleave(x, dim=2, repeats=n_rep)"""
-    bs, slen, num_key_value_heads, head_dim = x.shape
-    if n_rep == 1:
-        return x
-    return (
-        x[:, :, :, None, :]
-        .expand(bs, slen, num_key_value_heads, n_rep, head_dim)
-        .reshape(bs, slen, num_key_value_heads * n_rep, head_dim)
-    )
-
 
 class Attention(nn.Module):
     def __init__(self, args: MiniMindConfig):
@@ -40,6 +29,17 @@ class Attention(nn.Module):
         self.dropout = args.dropout
         self.flash = hasattr(torch.nn.functional, 'scaled_dot_product_attention') and args.flash_attn
         # print("WARNING: using slow attention. Flash Attention requires PyTorch >= 2.0")
+
+    def _repeat_kv(self, x: torch.Tensor) -> torch.Tensor:
+        """torch.repeat_interleave(x, dim=2, repeats=n_rep)"""
+        bs, slen, num_key_value_heads, head_dim = x.shape
+        if self.n_rep == 1:
+            return x
+        return (
+            x[:, :, :, None, :]
+            .expand(bs, slen, num_key_value_heads, self.n_rep, head_dim)
+            .reshape(bs, slen, num_key_value_heads * self.n_rep, head_dim)
+        )
 
     def forward(self,
                 x: torch.Tensor,
@@ -64,8 +64,8 @@ class Attention(nn.Module):
 
         xq, xk, xv = (
             xq.transpose(1, 2),
-            repeat_kv(xk, self.n_rep).transpose(1, 2),
-            repeat_kv(xv, self.n_rep).transpose(1, 2)
+            self._repeat_kv(xk).transpose(1, 2),
+            self._repeat_kv(xv).transpose(1, 2)
         )
 
         if self.flash and seq_len != 1:
