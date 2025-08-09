@@ -1,7 +1,6 @@
 import math
 import torch
 from torch import nn
-from transformers.activations import ACT2FN
 from typing import Optional, Tuple, List, Union
 import torch.nn.functional as F
 from transformers import PreTrainedModel, GenerationMixin, PretrainedConfig
@@ -9,6 +8,7 @@ from transformers.modeling_outputs import CausalLMOutputWithPast
 from model.model_config import MiniMindConfig
 from model.rmsnorm import RMSNorm
 from model.rotary_pos_emb import precompute_freqs_cis, apply_rotary_pos_emb
+from model.feed_forward import FeedForward
 
 
 class Attention(nn.Module):
@@ -96,22 +96,6 @@ class Attention(nn.Module):
         output = output.transpose(1, 2).reshape(bsz, seq_len, -1)
         output = self.resid_dropout(self.o_proj(output))
         return output, past_kv
-
-
-class FeedForward(nn.Module):
-    def __init__(self, config: MiniMindConfig):
-        super().__init__()
-        if config.intermediate_size is None:
-            intermediate_size = int(config.hidden_size * 8 / 3)
-            config.intermediate_size = 64 * ((intermediate_size + 64 - 1) // 64)
-        self.gate_proj = nn.Linear(config.hidden_size, config.intermediate_size, bias=False)
-        self.down_proj = nn.Linear(config.intermediate_size, config.hidden_size, bias=False)
-        self.up_proj = nn.Linear(config.hidden_size, config.intermediate_size, bias=False)
-        self.dropout = nn.Dropout(config.dropout)
-        self.act_fn = ACT2FN[config.hidden_act]
-
-    def forward(self, x):
-        return self.dropout(self.down_proj(self.act_fn(self.gate_proj(x)) * self.up_proj(x)))
 
 
 class MoEGate(nn.Module):
