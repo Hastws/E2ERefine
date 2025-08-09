@@ -14,7 +14,8 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
 from contextlib import nullcontext
 from transformers import AutoTokenizer
-from model.model_minimind import MiniMindConfig, MiniMindForCausalLM
+from model.model_config import MiniMindConfig
+from model.model_minimind import MiniMindForCausalLM
 from dataset.lm_dataset import PretrainDataset
 
 warnings.filterwarnings('ignore')

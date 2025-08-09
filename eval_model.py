@@ -3,7 +3,8 @@ import random
 import warnings
 import numpy as np
 from transformers import AutoTokenizer, AutoModelForCausalLM, TextStreamer
-from model.model_minimind import MiniMindConfig, MiniMindForCausalLM
+from model.model_config import MiniMindConfig
+from model.model_minimind import MiniMindForCausalLM
 from model.model_lora import *
 
 warnings.filterwarnings('ignore')
